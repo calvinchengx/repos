@@ -1,0 +1,145 @@
+package main
+
+import (
+	"bufio"
+	"encoding/json"
+	"fmt"
+	"log"
+	"net/http"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+	"sync"
+
+	"github.com/howeyc/gopass"
+)
+
+type Repository struct {
+	Name     string `json:"name"`
+	CloneURL string `json:"clone_url"`
+}
+
+func getRepositories(apiBaseURL, orgName, username, accessToken string) ([]Repository, error) {
+	var url string
+	if orgName != "" {
+		url = fmt.Sprintf("%s/orgs/%s/repos", apiBaseURL, orgName)
+	} else if username != "" {
+		url = fmt.Sprintf("%s/users/%s/repos", apiBaseURL, username)
+	} else {
+		return nil, fmt.Errorf("orgName or username is required")
+	}
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("Accept", "application/vnd.github.v3+json")
+
+	q := req.URL.Query()
+	q.Add("type", "all")
+	q.Add("per_page", "100")
+	req.URL.RawQuery = q.Encode()
+
+	client := http.DefaultClient
+	response, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer response.Body.Close()
+
+	var repositories []Repository
+	if err := json.NewDecoder(response.Body).Decode(&repositories); err != nil {
+		return nil, err
+	}
+
+	return repositories, nil
+}
+
+func cloneRepositories(repositories []Repository, cloneDir string) {
+	var wg sync.WaitGroup
+	cloneChan := make(chan Repository)
+
+	// Start goroutines for cloning repositories
+	for _, repo := range repositories {
+		wg.Add(1)
+		go func(repo Repository) {
+			defer wg.Done()
+
+			repoDir := filepath.Join(cloneDir, repo.Name)
+			if _, err := os.Stat(repoDir); err == nil {
+				// Directory already exists, perform git pull
+				fmt.Printf("Repository %s already exists. Performing git pull...\n", repo.Name)
+				cmd := exec.Command("git", "pull")
+				cmd.Stdout = os.Stdout
+				cmd.Stderr = os.Stderr
+				cmd.Dir = repoDir
+				if err := cmd.Run(); err != nil {
+					log.Printf("Error pulling repository %s: %s\n", repo.Name, err.Error())
+				} else {
+					fmt.Printf("Pulled repository: %s\n", repo.Name)
+				}
+			} else {
+				// Directory doesn't exist, clone the repository
+				fmt.Printf("Cloning repository %s...\n", repo.Name)
+				cmd := exec.Command("git", "clone", repo.CloneURL)
+				cmd.Stdout = os.Stdout
+				cmd.Stderr = os.Stderr
+				cmd.Dir = cloneDir
+				if err := cmd.Run(); err != nil {
+					log.Printf("Error cloning repository %s: %s\n", repo.Name, err.Error())
+				} else {
+					fmt.Printf("Cloned repository: %s\n", repo.Name)
+				}
+			}
+		}(repo)
+	}
+
+	// Wait for all goroutines to finish
+	wg.Wait()
+	close(cloneChan)
+}
+
+func main() {
+	var (
+		orgName     string
+		username    string
+		accessToken string
+		cloneDir    string
+	)
+
+	reader := bufio.NewReader(os.Stdin)
+
+	fmt.Print("Enter GitHub organization name (leave empty if cloning for a username): ")
+	orgName, _ = reader.ReadString('\n')
+	orgName = strings.TrimSpace(orgName)
+
+	fmt.Print("Enter GitHub username (leave empty if cloning for an organization): ")
+	username, _ = reader.ReadString('\n')
+	username = strings.TrimSpace(username)
+
+	if orgName != "" && username != "" {
+		log.Fatal("Please provide either an organization name or a username, not both.")
+	}
+
+	fmt.Print("Enter personal access token: ")
+	accessTokenBytes, err := gopass.GetPasswdMasked()
+	if err != nil {
+		log.Fatalf("Error reading access token: %s", err)
+	}
+	accessToken = strings.TrimSpace(string(accessTokenBytes))
+
+	fmt.Print("Enter the directory where repositories should be cloned: ")
+	cloneDir, _ = reader.ReadString('\n')
+	cloneDir = strings.TrimSpace(cloneDir)
+
+	repositories, err := getRepositories("https://api.github.com", orgName, username, accessToken)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	cloneRepositories(repositories, cloneDir)
+
+	fmt.Printf("Total number of repositories: %d\n", len(repositories))
+}
