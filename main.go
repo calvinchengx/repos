@@ -71,7 +71,7 @@ func cloneRepositories(repositories []Repository, cloneDir string) {
 			if _, err := os.Stat(repoDir); err == nil {
 				// Directory already exists, perform git pull
 				fmt.Printf("Repository %s already exists. Performing git pull...\n", repo.Name)
-				cmd := exec.Command("git", "pull")
+				cmd := exec.Command("git", "pull", "--all")
 				cmd.Stdout = os.Stdout
 				cmd.Stderr = os.Stderr
 				cmd.Dir = repoDir
