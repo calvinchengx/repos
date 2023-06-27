@@ -116,9 +116,11 @@ func main() {
 	orgName, _ = reader.ReadString('\n')
 	orgName = strings.TrimSpace(orgName)
 
-	fmt.Print("Enter GitHub username (leave empty if cloning for an organization): ")
-	username, _ = reader.ReadString('\n')
-	username = strings.TrimSpace(username)
+	if orgName == "" {
+		fmt.Print("Enter GitHub username (leave empty if cloning for an organization): ")
+		username, _ = reader.ReadString('\n')
+		username = strings.TrimSpace(username)
+	}
 
 	if orgName != "" && username != "" {
 		log.Fatal("Please provide either an organization name or a username, not both.")
@@ -140,7 +142,6 @@ func main() {
 		log.Fatal(err)
 	}
 
-	fmt.Println(repositories)
 	cloneRepositories(repositories, cloneDir)
 
 	fmt.Printf("Total number of repositories: %d\n", len(repositories))
