@@ -18,6 +18,7 @@ import (
 type Repository struct {
 	Name     string `json:"name"`
 	CloneURL string `json:"clone_url"`
+	SSHURL   string `json:"ssh_url"`
 }
 
 func getRepositories(apiBaseURL, orgName, username, accessToken string) ([]Repository, error) {
@@ -83,7 +84,7 @@ func cloneRepositories(repositories []Repository, cloneDir string) {
 			} else {
 				// Directory doesn't exist, clone the repository
 				fmt.Printf("Cloning repository %s...\n", repo.Name)
-				cmd := exec.Command("git", "clone", repo.CloneURL)
+				cmd := exec.Command("git", "clone", repo.SSHURL)
 				cmd.Stdout = os.Stdout
 				cmd.Stderr = os.Stderr
 				cmd.Dir = cloneDir
@@ -139,6 +140,7 @@ func main() {
 		log.Fatal(err)
 	}
 
+	fmt.Println(repositories)
 	cloneRepositories(repositories, cloneDir)
 
 	fmt.Printf("Total number of repositories: %d\n", len(repositories))
