@@ -59,6 +59,22 @@ func getRepositories(apiBaseURL, orgName, username, accessToken string) ([]Repos
 }
 
 func cloneRepositories(repositories []Repository, cloneDir string) {
+
+	_, err := os.Stat(cloneDir)
+	if os.IsNotExist(err) {
+		// directory does not exist, create it
+		err := os.MkdirAll(cloneDir, 0755)
+		if err != nil {
+			fmt.Println("Failed to create directory:", err)
+			return
+		}
+		fmt.Println("Directory created successfully.")
+	} else if err != nil {
+		// an error coccured while checking the directory
+		fmt.Println("Failed to create directory:", err)
+		return
+	}
+
 	var wg sync.WaitGroup
 	cloneChan := make(chan Repository)
 
@@ -133,15 +149,29 @@ func main() {
 	}
 	accessToken = strings.TrimSpace(string(accessTokenBytes))
 
-	fmt.Print("Enter the directory where repositories should be cloned: ")
+	fmt.Print("Enter the directory where repositories should be cloned \n(if empty, repositories will use the default path as user home and orgName or username subdirectory): ")
 	cloneDir, _ = reader.ReadString('\n')
 	cloneDir = strings.TrimSpace(cloneDir)
+
+	if cloneDir == "" {
+		homeDir, err := os.UserHomeDir() // this works on Windows, macOS, and Linux
+		if err != nil {
+			fmt.Println("Failed to get home directory:", err)
+			return
+		}
+		if orgName != "" {
+			cloneDir = filepath.Join(homeDir, orgName)
+		} else {
+			cloneDir = filepath.Join(homeDir, username)
+		}
+	}
 
 	repositories, err := getRepositories("https://api.github.com", orgName, username, accessToken)
 	if err != nil {
 		log.Fatal(err)
 	}
 
+	fmt.Printf("Clone or pull repositories into %s \n", cloneDir)
 	cloneRepositories(repositories, cloneDir)
 
 	fmt.Printf("Total number of repositories: %d\n", len(repositories))

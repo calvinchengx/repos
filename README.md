@@ -11,6 +11,7 @@ Enter GitHub organization name (leave empty if cloning for a username):
 Enter GitHub username (leave empty if cloning for an organization): calvinchengx
 Enter personal access token: ****************************************
 Enter the directory where repositories should be cloned: /Users/calvin/calvinchengx
+(if empty, repositories will use the default path as user home and orgName or username subdirectory): 
 ```
 
 ## Run Tests
