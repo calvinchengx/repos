@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"log"
 	"net/http"
@@ -126,32 +127,55 @@ func main() {
 		cloneDir    string
 	)
 
-	reader := bufio.NewReader(os.Stdin)
+	// Define command line flags
+	orgNameFlag := flag.String("org", "", "GitHub organization name")
+	usernameFlag := flag.String("user", "", "GitHub username")
+	cloneDirFlag := flag.String("dir", "", "Directory where repositories should be cloned")
 
-	fmt.Print("Enter GitHub organization name (leave empty if cloning for a username): ")
-	orgName, _ = reader.ReadString('\n')
-	orgName = strings.TrimSpace(orgName)
+	// Parse command line arguments
+	flag.Parse()
 
-	if orgName == "" {
-		fmt.Print("Enter GitHub username (leave empty if cloning for an organization): ")
-		username, _ = reader.ReadString('\n')
-		username = strings.TrimSpace(username)
+	if flag.NFlag() > 0 {
+		fmt.Println("Using command line flags")
+		orgName = *orgNameFlag
+		username = *usernameFlag
+		accessToken = os.Getenv("GITHUB_TOKEN")
+		cloneDir = *cloneDirFlag
+		if orgName != "" && username != "" {
+			log.Fatal("Please provide either an organization name or a username, not both.")
+		}
+		if accessToken == "" {
+			fmt.Println("Error: GITHUB_TOKEN environment variable is not set.")
+			os.Exit(1)
+		}
+	} else {
+		reader := bufio.NewReader(os.Stdin)
+
+		fmt.Print("Enter GitHub organization name (leave empty if cloning for a username): ")
+		orgName, _ = reader.ReadString('\n')
+		orgName = strings.TrimSpace(orgName)
+
+		if orgName == "" {
+			fmt.Print("Enter GitHub username (leave empty if cloning for an organization): ")
+			username, _ = reader.ReadString('\n')
+			username = strings.TrimSpace(username)
+		}
+
+		if orgName != "" && username != "" {
+			log.Fatal("Please provide either an organization name or a username, not both.")
+		}
+
+		fmt.Print("Enter personal access token: ")
+		accessTokenBytes, err := gopass.GetPasswdMasked()
+		if err != nil {
+			log.Fatalf("Error reading access token: %s", err)
+		}
+		accessToken = strings.TrimSpace(string(accessTokenBytes))
+
+		fmt.Print("Enter the directory where repositories should be cloned \n(if empty, repositories will use the default path as user home and orgName or username subdirectory): ")
+		cloneDir, _ = reader.ReadString('\n')
+		cloneDir = strings.TrimSpace(cloneDir)
 	}
-
-	if orgName != "" && username != "" {
-		log.Fatal("Please provide either an organization name or a username, not both.")
-	}
-
-	fmt.Print("Enter personal access token: ")
-	accessTokenBytes, err := gopass.GetPasswdMasked()
-	if err != nil {
-		log.Fatalf("Error reading access token: %s", err)
-	}
-	accessToken = strings.TrimSpace(string(accessTokenBytes))
-
-	fmt.Print("Enter the directory where repositories should be cloned \n(if empty, repositories will use the default path as user home and orgName or username subdirectory): ")
-	cloneDir, _ = reader.ReadString('\n')
-	cloneDir = strings.TrimSpace(cloneDir)
 
 	if cloneDir == "" {
 		homeDir, err := os.UserHomeDir() // this works on Windows, macOS, and Linux
