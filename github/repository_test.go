@@ -1,4 +1,4 @@
-package main
+package github
 
 import (
 	"fmt"
@@ -26,7 +26,7 @@ func TestGetRepositories(t *testing.T) {
 
 	// Perform the test
 	fmt.Println(mockServer.URL)
-	repositories, err := getRepositories(mockServer.URL, "org", "", "accessToken")
+	repositories, err := GetRepositories(mockServer.URL, "org", "", "accessToken")
 	assert.NoError(t, err)
 	assert.NotNil(t, repositories)
 	assert.Equal(t, 2, len(repositories))

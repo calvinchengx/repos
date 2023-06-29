@@ -43,7 +43,7 @@ Usage of repos:
 ## Run Tests
 
 ```bash
-$ go test -v
+$ go test -v ./...
 ```
 
 ## Build and Install
