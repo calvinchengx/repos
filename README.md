@@ -20,7 +20,7 @@ Enter the directory where repositories should be cloned: /Users/calvin/calvinche
 
 ```bash
 # place your github personal access token a .env file
-# GITHUB_TOKEN="your personal access token"
+# export GITHUB_TOKEN="your personal access token"
 
 $ source .env
 $ go run main.go -user calvinchengx
