@@ -59,12 +59,16 @@ func main() {
 			log.Fatal("Please provide either an organization name or a username, not both.")
 		}
 
-		fmt.Print("Enter personal access token: ")
-		accessTokenBytes, err := gopass.GetPasswdMasked()
-		if err != nil {
-			log.Fatalf("Error reading access token: %s", err)
+		// if GITHUB_TOKEN is available, we do not need to ask for it
+		accessToken = os.Getenv("GITHUB_TOKEN")
+		if accessToken == "" {
+			fmt.Print("Enter personal access token: ")
+			accessTokenBytes, err := gopass.GetPasswdMasked()
+			if err != nil {
+				log.Fatalf("Error reading access token: %s", err)
+			}
+			accessToken = strings.TrimSpace(string(accessTokenBytes))
 		}
-		accessToken = strings.TrimSpace(string(accessTokenBytes))
 
 		fmt.Print("Enter the directory where repositories should be cloned \n(if empty, repositories will use the default path as user home and orgName or username subdirectory): ")
 		cloneDir, _ = reader.ReadString('\n')
