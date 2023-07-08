@@ -5,15 +5,18 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
 	"github.com/calvinchengx/repos/github"
 	"github.com/howeyc/gopass"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 var (
+	cfgFile     string
 	orgName     string
 	username    string
 	accessToken string
@@ -29,8 +32,49 @@ var rootCmd = &cobra.Command{
 	// has an action associated with it:
 	Run: func(cmd *cobra.Command, args []string) {
 
+		accessToken = os.Getenv("GITHUB_TOKEN")
+
 		if cmd.Flags().NFlag() > 0 {
-			accessToken = os.Getenv("GITHUB_TOKEN")
+
+			if cmd.Flags().Changed("config") {
+				if len(cfgFile) == 1 && cfgFile == " " {
+					cfgFile = configPath()
+				}
+				v := viper.New()
+				v.SetConfigType("yaml")
+				v.SetConfigFile(cfgFile)
+				err := v.ReadInConfig()
+				if err != nil {
+					log.Fatalf("Error reading config file: %s", err)
+				}
+
+				// if GITHUB_TOKEN is available, we do not need to ask for it
+				if accessToken == "" {
+					fmt.Print("Enter personal access token: ")
+					accessTokenBytes, err := gopass.GetPasswdMasked()
+					if err != nil {
+						log.Fatalf("Error reading access token: %s", err)
+					}
+					accessToken = strings.TrimSpace(string(accessTokenBytes))
+				}
+
+				// if config file is found and has values, we will run the command as a loop with specified values
+				pairs := v.GetStringSlice("pairs")
+				for _, pair := range pairs {
+					orgName, username, cloneDir = parsePair(pair)
+					repositories, err := github.GetRepositories("https://api.github.com", orgName, username, accessToken)
+					if err != nil {
+						log.Fatal(err)
+					}
+
+					fmt.Printf("Clone or pull repositories into %s \n", cloneDir)
+					github.CloneRepositories(repositories, cloneDir)
+					fmt.Printf("Total number of repositories: %d\n", len(repositories))
+
+				}
+				return
+			}
+
 			if cmd.Flags().Changed("org") && cmd.Flags().Changed("user") {
 				log.Fatal("Please provide either an organization name or a username, not both.")
 			}
@@ -55,7 +99,6 @@ var rootCmd = &cobra.Command{
 			}
 
 			// if GITHUB_TOKEN is available, we do not need to ask for it
-			accessToken = os.Getenv("GITHUB_TOKEN")
 			if accessToken == "" {
 				fmt.Print("Enter personal access token: ")
 				accessTokenBytes, err := gopass.GetPasswdMasked()
@@ -92,6 +135,8 @@ var rootCmd = &cobra.Command{
 		github.CloneRepositories(repositories, cloneDir)
 
 		fmt.Printf("Total number of repositories: %d\n", len(repositories))
+
+		configUpdate(cfgFile, orgName, username, cloneDir)
 	},
 }
 
@@ -105,7 +150,123 @@ func Execute() {
 }
 
 func init() {
+	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", configPath(), "Path to config file")
+	rootCmd.PersistentFlags().Lookup("config").NoOptDefVal = " " // allows us to not provide any value for config flag
+	cobra.OnInitialize(initConfig)
 	rootCmd.PersistentFlags().StringVarP(&orgName, "org", "o", "", "GitHub organization name")
 	rootCmd.PersistentFlags().StringVarP(&username, "user", "u", "", "GitHub username")
 	rootCmd.PersistentFlags().StringVarP(&cloneDir, "dir", "d", "", "Directory where repositories should be cloned")
+	rootCmd.Flags().SortFlags = false
+}
+
+// use yaml config file if it is available
+func initConfig() {
+	if cfgFile != "" {
+		viper.SetConfigFile(cfgFile)
+	} else {
+		viper.SetConfigFile(filepath.Join(configPath()))
+	}
+
+	viper.ReadInConfig()
+}
+
+func configPath() string {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		log.Fatal(err)
+	}
+	configDir := filepath.Join(homeDir, ".repos")
+	return filepath.Join(configDir, "repos.yaml")
+}
+
+func configUpdate(cfgFile string, orgName string, username string, cloneDir string) error {
+
+	// Create config directory if it doesn't exist
+	configDir := path.Dir(cfgFile)
+	// Create directories recursively
+	err := os.MkdirAll(configDir, os.ModePerm)
+	if err != nil {
+		fmt.Println("Error creating directories:", err)
+		return err
+	}
+
+	// Check if file exists
+	if _, err := os.Stat(cfgFile); os.IsNotExist(err) {
+		// File doesn't exist, create it
+		file, err := os.Create(cfgFile)
+		if err != nil {
+			fmt.Println("Error creating file:", err)
+			return err
+		}
+		defer file.Close()
+
+		fmt.Println("File created successfully.")
+	} else if err != nil {
+		fmt.Println("Error checking file existence:", err)
+		return err
+	} else {
+		fmt.Println("File already exists.")
+	}
+
+	// update file with values
+	v := viper.New()
+	v.SetConfigType("yaml")
+	v.SetConfigFile(cfgFile)
+	err = v.ReadInConfig()
+	if err != nil {
+		fmt.Println("Error reading config file:", err)
+		return err
+	}
+
+	pairs := v.GetStringSlice("pairs")
+	fmt.Println("existing list:", pairs)
+	newPairs := []string{}
+	newItem := ""
+
+	if orgName != "" {
+		newItem = "org:" + orgName + ":" + cloneDir
+		if !hasDuplicate(pairs, newItem) {
+			newPairs = append(pairs, newItem)
+		} else {
+			newPairs = pairs
+		}
+	} else if username != "" {
+		newItem = "user:" + username + ":" + cloneDir
+		if !hasDuplicate(pairs, newItem) {
+			newPairs = append(pairs, newItem)
+		} else {
+			newPairs = pairs
+		}
+	}
+	fmt.Println("new list:", newPairs)
+	v.Set("pairs", newPairs)
+
+	err = v.WriteConfig()
+	if err != nil {
+		fmt.Println("Error writing config file:", err)
+		return err
+	}
+
+	return nil
+}
+
+func hasDuplicate(list []string, newItem string) bool {
+	for _, item := range list {
+		if item == newItem {
+			return true
+		}
+	}
+	return false
+}
+
+func parsePair(pair string) (orgName string, username string, cloneDir string) {
+
+	parts := strings.Split(pair, ":")
+	if parts[0] == "org" {
+		return parts[1], "", parts[2]
+	} else if parts[0] == "user" {
+		return "", parts[1], parts[2]
+	}
+
+	return "", "", ""
 }
