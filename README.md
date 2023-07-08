@@ -8,7 +8,6 @@ Simple command line utility to manage multiple github repos.
 
 ```bash
 $ go run main.go
-
 Enter GitHub organization name (leave empty if cloning for a username): 
 Enter GitHub username (leave empty if cloning for an organization): calvinchengx
 Enter personal access token: ****************************************
@@ -30,13 +29,16 @@ $ go run main.go -user calvinchengx
 
 # see available flags
 $ go run main.go -h
-Usage of repos:
-  -dir string
-        Directory where repositories should be cloned
-  -org string
-        GitHub organization name
-  -user string
-        GitHub username
+clone or pull multiple repositories given org name or username
+
+Usage:
+  repos [flags]
+
+Flags:
+  -d, --dir string    Directory where repositories should be cloned
+  -h, --help          help for repos
+  -o, --org string    GitHub organization name
+  -u, --user string   GitHub username
 ```
 
 
@@ -55,11 +57,14 @@ $ go build && go install
 $ repos
 
 $ repos -h
-Usage of repos:
-  -dir string
-    	Directory where repositories should be cloned
-  -org string
-    	GitHub organization name
-  -user string
-    	GitHub username
+clone or pull multiple repositories given org name or username
+
+Usage:
+  repos [flags]
+
+Flags:
+  -d, --dir string    Directory where repositories should be cloned
+  -h, --help          help for repos
+  -o, --org string    GitHub organization name
+  -u, --user string   GitHub username
 ```
