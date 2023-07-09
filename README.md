@@ -41,6 +41,21 @@ Flags:
   -u, --user string   GitHub username
 ```
 
+### Non-interactive mode with configuration file
+
+Every time we run `repos` in interactive mode, we will automatically save the repository-clone-directory mapping to a configuration file in a default configuration file `$HOME/.repos/repos.yaml`. 
+
+The next time we run `repos -c` with `GITHUB_TOKEN` environment variable, it will automatically clone or pull all the repository-clone-directory mapping pairs in the configuration file.
+
+This allows us to easily run all the `repos` commands in a single command.
+
+```bash
+# example with .env
+$ source .env && repos -c
+
+# example with doppler
+$ doppler run -- repos -c
+```
 
 ## Run Tests
 
