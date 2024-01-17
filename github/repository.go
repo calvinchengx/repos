@@ -26,32 +26,49 @@ func GetRepositories(apiBaseURL, orgName, username, accessToken string) ([]Repos
 	} else {
 		return nil, fmt.Errorf("orgName or username is required")
 	}
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return nil, err
+
+	var allRepositories []Repository
+	page := 1
+
+	for {
+		req, err := http.NewRequest("GET", url, nil)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("Authorization", "Bearer "+accessToken)
+		req.Header.Set("Accept", "application/vnd.github.v3+json")
+
+		q := req.URL.Query()
+		q.Add("type", "all")
+		q.Add("per_page", "100")
+		q.Add("page", fmt.Sprintf("%d", page))
+		req.URL.RawQuery = q.Encode()
+
+		client := http.DefaultClient
+		response, err := client.Do(req)
+		if err != nil {
+			return nil, err
+		}
+		defer response.Body.Close()
+
+		var repositories []Repository
+		if err := json.NewDecoder(response.Body).Decode(&repositories); err != nil {
+			return nil, err
+		}
+
+		if len(repositories) == 0 {
+			// no more pages
+			break
+		}
+
+		allRepositories = append(allRepositories, repositories...)
+
+		// increment page for the next request
+		page++
 	}
 
-	req.Header.Set("Authorization", "Bearer "+accessToken)
-	req.Header.Set("Accept", "application/vnd.github.v3+json")
-
-	q := req.URL.Query()
-	q.Add("type", "all")
-	q.Add("per_page", "100")
-	req.URL.RawQuery = q.Encode()
-
-	client := http.DefaultClient
-	response, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer response.Body.Close()
-
-	var repositories []Repository
-	if err := json.NewDecoder(response.Body).Decode(&repositories); err != nil {
-		return nil, err
-	}
-
-	return repositories, nil
+	return allRepositories, nil
 }
 
 func CloneRepositories(repositories []Repository, cloneDir string) {
