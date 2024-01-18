@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"sync"
 )
 
@@ -63,6 +64,13 @@ func GetRepositories(apiBaseURL, orgName, username, accessToken string) ([]Repos
 		}
 
 		allRepositories = append(allRepositories, repositories...)
+
+		// Check if there are more pages using the Link header
+		linkHeader := response.Header.Get("Link")
+		if !hasNextPage(linkHeader) {
+			// No more pages, break out of the loop
+			break
+		}
 
 		// increment page for the next request
 		page++
@@ -129,4 +137,12 @@ func CloneRepositories(repositories []Repository, cloneDir string) {
 	// Wait for all goroutines to finish
 	wg.Wait()
 	close(cloneChan)
+}
+
+// Helper function to check if there is a next page in the Link header
+func hasNextPage(linkHeader string) bool {
+	// Your logic to parse the Link header and determine if there is a next page
+	// This can be done using regular expressions or a more sophisticated parser
+	// Here's a simplified example assuming a common format: '<url>; rel="next"'
+	return strings.Contains(linkHeader, "rel=\"next\"")
 }

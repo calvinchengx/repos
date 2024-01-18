@@ -1,7 +1,6 @@
 package github
 
 import (
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -25,7 +24,6 @@ func TestGetRepositories(t *testing.T) {
 	defer mockServer.Close()
 
 	// Perform the test
-	fmt.Println(mockServer.URL)
 	repositories, err := GetRepositories(mockServer.URL, "org", "", "accessToken")
 	assert.NoError(t, err)
 	assert.NotNil(t, repositories)
@@ -34,4 +32,5 @@ func TestGetRepositories(t *testing.T) {
 	assert.Equal(t, "https://github.com/org/repo1.git", repositories[0].CloneURL)
 	assert.Equal(t, "repo2", repositories[1].Name)
 	assert.Equal(t, "https://github.com/org/repo2.git", repositories[1].CloneURL)
+
 }
